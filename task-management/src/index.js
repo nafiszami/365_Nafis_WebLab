@@ -1,23 +1,29 @@
-
 const express = require('express');
-const app = express();
-const port = 3000;
+const taskRouter = require('./routes/tasks');
 
-const tasksRouter = require('./routes/tasks');
+const app = express();
+const PORT = 3000;
+
+
+const tasks = [
+  { id: 1, title: 'Sample Task', completed: false }
+];
+
+app.locals.tasks = tasks;
+
+app.use(express.json());
+
+app.use('/tasks', taskRouter);
 
 app.get('/', (req, res) => {
-  res.send('Task Management API is running!');
+  res.json({ message: 'Welcome to Task Manager API' });
 });
-
-app.use('/', tasksRouter);
 
 app.get('/health', (req, res) => {
-  res.json({
-    status: "healthy",
-    uptime: process.uptime()
-  });
+  res.status(200).json({ status: 'OK', message: 'Server is running smoothly' });
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
 });
