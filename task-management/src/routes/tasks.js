@@ -10,10 +10,36 @@ router.get('/', (req, res) => {
   });
 });
 
+// GET /task/:id - Retrieve task by ID
+router.get('/:id', (req, res) => {
+  const { id } = req.params;
+  const tasks = req.app.locals.tasks;
+
+  // Validate numeric ID
+  const taskId = parseInt(id, 10);
+  if (isNaN(taskId)) {
+    return res.status(400).json({
+      error: 'Invalid ID format'
+    });
+  }
+
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) {
+    return res.status(404).json({
+      error: 'Task not found'
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    data: task
+  });
+});
+
 // POST /tasks - Create a new task
 router.post('/', (req, res) => {
   try {
-    const { title } = req.body;
+    const { title, priority } = req.body;
 
     // Input validation
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
@@ -23,10 +49,15 @@ router.post('/', (req, res) => {
       });
     }
 
+    const validPriorities = ['low', 'medium', 'high'];
+    const taskPriority = validPriorities.includes(priority) ? priority : 'medium';
+
     const newTask = {
-      id: Date.now(),  // temporary unique ID
+      id: Date.now(),
       title: title.trim(),
-      completed: false
+      completed: false,
+      priority: taskPriority,
+      createdAt: new Date()
     };
 
     const tasks = req.app.locals.tasks;
@@ -36,7 +67,6 @@ router.post('/', (req, res) => {
       success: true,
       data: newTask
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
