@@ -6,28 +6,33 @@ const db = require('../config/db');
 // GET all tasks with pagination
 router.get('/', async (req, res) => {
     try {
-       
-        let { page = 1, limit = 10 } = req.query;
+        let { page = 1, limit = 10, q } = req.query;
 
-      
         page = parseInt(page);
         limit = parseInt(limit);
-
-       
         if (limit > 50) limit = 50;
 
+      
+        let whereClause = 'WHERE deleted_at IS NULL';
+        const params = [];
+
         
-        const [countResult] = await db.query('SELECT COUNT(*) as total FROM tasks WHERE deleted_at IS NULL');
+        if (q) {
+            whereClause += ' AND title LIKE ?';
+            params.push(`%${q}%`);
+        }
+
+        const [countResult] = await db.query(`SELECT COUNT(*) as total FROM tasks ${whereClause}`, params);
         const totalTasks = countResult[0].total;
 
-        
         const totalPages = Math.ceil(totalTasks / limit);
-
-        
         const offset = (page - 1) * limit;
-        const [tasks] = await db.query('SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?', [limit, offset]);
 
-        
+        const [tasks] = await db.query(
+            `SELECT * FROM tasks ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+
         res.json({
             totalTasks,
             totalPages,
@@ -35,6 +40,7 @@ router.get('/', async (req, res) => {
             limit,
             data: tasks
         });
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Database error' });
