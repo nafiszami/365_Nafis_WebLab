@@ -1,77 +1,91 @@
 const express = require('express');
 const router = express.Router();
+const db = require('../config/db');
 
-// GET /tasks - Retrieve all tasks
-router.get('/', (req, res) => {
-  const tasks = req.app.locals.tasks;
-  res.status(200).json({
-    success: true,
-    data: tasks
-  });
-});
-
-// GET /task/:id - Retrieve task by ID
-router.get('/:id', (req, res) => {
-  const { id } = req.params;
-  const tasks = req.app.locals.tasks;
-
-  // Validate numeric ID
-  const taskId = parseInt(id, 10);
-  if (isNaN(taskId)) {
-    return res.status(400).json({
-      error: 'Invalid ID format'
-    });
-  }
-
-  const task = tasks.find(t => t.id === taskId);
-  if (!task) {
-    return res.status(404).json({
-      error: 'Task not found'
-    });
-  }
-
-  res.status(200).json({
-    success: true,
-    data: task
-  });
-});
-
-// POST /tasks - Create a new task
-router.post('/', (req, res) => {
+// GET all tasks
+router.get('/', async (req, res) => {
   try {
-    const { title, priority } = req.body;
+    const [rows] = await db.query('SELECT * FROM tasks ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
 
-    // Input validation
-    if (!title || typeof title !== 'string' || title.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Title is required and must be a non-empty string'
-      });
+// POST create a task
+router.post('/', async (req, res) => {
+  const { title, description } = req.body;
+
+  if (!title || title.trim() === '') {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  try {
+    const [result] = await db.query(
+      'INSERT INTO tasks (title, description) VALUES (?, ?)',
+      [title, description || null]
+    );
+
+    const [newTask] = await db.query('SELECT * FROM tasks WHERE id = ?', [result.insertId]);
+
+    res.status(201).json(newTask[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create task' });
+  }
+});
+
+// PUT update task
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, description, status } = req.body;
+
+  try {
+    const updates = [];
+    const values = [];
+
+    if (title !== undefined) { updates.push('title = ?'); values.push(title); }
+    if (description !== undefined) { updates.push('description = ?'); values.push(description); }
+    if (status !== undefined) { updates.push('status = ?'); values.push(status); }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
     }
 
-    const validPriorities = ['low', 'medium', 'high'];
-    const taskPriority = validPriorities.includes(priority) ? priority : 'medium';
+    values.push(id);
 
-    const newTask = {
-      id: Date.now(),
-      title: title.trim(),
-      completed: false,
-      priority: taskPriority,
-      createdAt: new Date()
-    };
+    const sql = `UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`;
 
-    const tasks = req.app.locals.tasks;
-    tasks.push(newTask);
+    const [result] = await db.query(sql, values);
 
-    res.status(201).json({
-      success: true,
-      data: newTask
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const [updated] = await db.query('SELECT * FROM tasks WHERE id = ?', [id]);
+    res.json(updated[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update task' });
+  }
+});
+
+// DELETE task
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await db.query('DELETE FROM tasks WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete task' });
   }
 });
 
