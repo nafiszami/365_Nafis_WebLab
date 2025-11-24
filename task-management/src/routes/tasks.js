@@ -106,22 +106,54 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE task
+// Soft delete task
 router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
+    const { id } = req.params;
+    try {
+        const [result] = await db.query(
+            'UPDATE tasks SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
+            [id]
+        );
 
-  try {
-    const [result] = await db.query('DELETE FROM tasks WHERE id = ?', [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Task not found or already deleted' });
+        }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Task not found' });
+        res.status(200).json({ message: 'Task soft-deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to delete task' });
     }
+});
+// Get soft-deleted tasks
+router.get('/deleted', async (req, res) => {
+    try {
+        const [tasks] = await db.query('SELECT * FROM tasks WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC');
+        res.json(tasks);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+// Restore a soft-deleted task
+router.put('/:id/restore', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [result] = await db.query(
+            'UPDATE tasks SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL',
+            [id]
+        );
 
-    res.status(204).send();
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to delete task' });
-  }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Task not found or not deleted' });
+        }
+
+        const [restoredTask] = await db.query('SELECT * FROM tasks WHERE id = ?', [id]);
+        res.json(restoredTask[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to restore task' });
+    }
 });
 
 module.exports = router;
