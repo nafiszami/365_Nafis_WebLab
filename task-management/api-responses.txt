@@ -1,0 +1,18 @@
+
+GET /task/1
+Status: 200 OK
+Response:
+{
+  "id": 1,
+  "title": "Setup Node.js",
+  "completed": true,
+  "priority": "high",
+  "createdAt": "2025-10-01T00:00:00.000Z"
+}
+
+GET /task/200
+Status: 404 Not Found
+Response:
+{
+  "error": "Task not found"
+}
