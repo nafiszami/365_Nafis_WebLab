@@ -1,0 +1,16 @@
+.task-list {
+  max-width: 800px;
+  margin: 2rem auto;
+}
+
+.loading, .error, .no-tasks {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.1rem;
+  color: #636e72;
+}
+
+.error {
+  color: #e74c3c;
+}
+
